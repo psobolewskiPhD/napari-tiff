@@ -10,9 +10,9 @@ Replace code below accordingly.  For complete documentation see:
 https://napari.org/docs/plugins/for_plugin_developers.html
 """
 
+import zarr
 import dask.array as da
 import numpy as np
-from dask.array.core import normalize_chunks
 from dask.utils import parse_bytes
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
@@ -77,8 +77,6 @@ def tifffile_reader(tif: TiffFile) -> List[LayerData]:
     """Return napari LayerData from image series in TIFF file."""
     nlevels = len(tif.series[0].levels)
     if nlevels > 1:
-        import zarr
-
         store = tif.aszarr(multiscales=True)
         group = zarr.open_group(store=store, mode="r")
         # using group.attrs to get multiscales is recommended by cgohlke
