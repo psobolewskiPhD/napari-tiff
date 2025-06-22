@@ -9,6 +9,7 @@ see: https://napari.org/docs/plugins/hook_specifications.html
 Replace code below accordingly.  For complete documentation see:
 https://napari.org/docs/plugins/for_plugin_developers.html
 """
+
 import dask.array as da
 import numpy as np
 from dask.array.core import normalize_chunks
@@ -77,11 +78,15 @@ def tifffile_reader(tif: TiffFile) -> List[LayerData]:
     nlevels = len(tif.series[0].levels)
     if nlevels > 1:
         import zarr
+
         store = tif.aszarr(multiscales=True)
-        group = zarr.open_group(store=store, mode='r')
+        group = zarr.open_group(store=store, mode="r")
         # using group.attrs to get multiscales is recommended by cgohlke
         # default dask chunk is 128MiB, so use 1 MiB, which is more reasonable for visualization
-        data = [from_zarr_adaptive_chunks(group[path_dict['path']], target_size='1 MiB') for path_dict in group.attrs['multiscales'][0]['datasets']]
+        data = [
+            from_zarr_adaptive_chunks(group[path_dict["path"]], target_size="1 MiB")
+            for path_dict in group.attrs["multiscales"][0]["datasets"]
+        ]
         # assert array shapes are in descending order for napari multiscale image
         shapes = [arr.shape for arr in data]
         assert shapes == list(reversed(sorted(shapes)))
@@ -92,7 +97,8 @@ def tifffile_reader(tif: TiffFile) -> List[LayerData]:
 
     return [(data, metadata_kwargs, "image")]
 
-def from_zarr_adaptive_chunks(zarr_array, target_size='1 MiB'):
+
+def from_zarr_adaptive_chunks(zarr_array, target_size="1 MiB"):
     """Load zarr array as dask array with chunks that are multiples of storage chunks.
 
     Compute a set of chunk sizes that are multiples of storage chunks, while
@@ -130,7 +136,7 @@ def from_zarr_adaptive_chunks(zarr_array, target_size='1 MiB'):
             multiplier = max(1, target_chunk_size // storage_chunk_dim)
 
             # Ensure we don't exceed using the remaining storage_chunk elements
-            min_remaining_elements = np.prod(spatial_chunks[i+1:])
+            min_remaining_elements = np.prod(spatial_chunks[i + 1 :])
             max_elements_for_dim = remaining_elements // min_remaining_elements
             if multiplier * storage_chunk_dim > max_elements_for_dim:
                 # set the multipler for this dim such that we use the remaining shape
