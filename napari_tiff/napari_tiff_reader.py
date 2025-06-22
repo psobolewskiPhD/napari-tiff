@@ -98,11 +98,29 @@ def tifffile_reader(tif: TiffFile) -> List[LayerData]:
     return [(data, metadata_kwargs, "image")]
 
 
-def from_zarr_adaptive_chunks(zarr_array, target_size="1 MiB"):
-    """Load zarr array as dask array with chunks that are multiples of storage chunks.
+def from_zarr_adaptive_chunks(
+    zarr_array: "zarr.core.Array", target_size: str = "1 MiB"
+) -> "da.Array":
+    """
+    Load a zarr array as a dask array with chunks that are multiples of storage chunks.
 
-    Compute a set of chunk sizes that are multiples of storage chunks, while
-    ensuring that the chunks are reasonably isotropic."""
+    This function computes chunk sizes that are multiples of the underlying storage chunks,
+    while ensuring that the resulting chunks are reasonably isotropic (square/cubic) and
+    do not exceed the specified target size in bytes. When the last dimension
+    is 3, assumes that the image is RGB, and chunking is only applied to the spatial dimensions.
+
+    Parameters
+    ----------
+    zarr_array : zarr.core.Array
+        The input zarr array to be loaded as a dask array.
+    target_size : str, optional
+        The target chunk size in bytes (e.g., "1 MiB", "512 KiB"). Default is "1 MiB".
+
+    Returns
+    -------
+    dask.array.Array
+        A dask array loaded from the zarr array, with adaptively chosen chunk sizes.
+    """
 
     storage_chunks = zarr_array.chunks
     dtype_size = zarr_array.dtype.itemsize
@@ -120,7 +138,6 @@ def from_zarr_adaptive_chunks(zarr_array, target_size="1 MiB"):
     if is_rgb:
         target_elements //= 3  # Account for RGB channels
 
-    # Calculate chunk multipliers aiming for isotropic chunks
     chunk_shape = []
     remaining_elements = target_elements
 
@@ -128,7 +145,6 @@ def from_zarr_adaptive_chunks(zarr_array, target_size="1 MiB"):
         remaining_dims = len(spatial_chunks) - i
 
         if remaining_dims == 1:
-            # Last dimension - use all remaining budget
             multiplier = max(1, remaining_elements // storage_chunk_dim)
         else:
             # Aim for isotropic chunks - each dimension gets roughly equal "chunk size"
@@ -137,10 +153,10 @@ def from_zarr_adaptive_chunks(zarr_array, target_size="1 MiB"):
 
             # Ensure we don't exceed using the remaining storage_chunk elements
             min_remaining_elements = np.prod(spatial_chunks[i + 1 :])
-            max_elements_for_dim = remaining_elements // min_remaining_elements
-            if multiplier * storage_chunk_dim > max_elements_for_dim:
+            max_shape_for_dim = remaining_elements // min_remaining_elements
+            if multiplier * storage_chunk_dim > max_shape_for_dim:
                 # set the multipler for this dim such that we use the remaining shape
-                multiplier = max(1, max_elements_for_dim // storage_chunk_dim)
+                multiplier = max(1, max_shape_for_dim // storage_chunk_dim)
 
         # Don't exceed array bounds
         max_multiplier = zarr_array.shape[i] // storage_chunk_dim
