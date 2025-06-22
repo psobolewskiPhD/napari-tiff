@@ -97,7 +97,7 @@ def tifffile_reader(tif: TiffFile) -> List[LayerData]:
 
 
 def from_zarr_adaptive_chunks(
-    zarr_array: "zarr.core.Array", target_size: str = "1 MiB"
+    zarr_array: "zarr.Array", target_size: str = "1 MiB"
 ) -> "da.Array":
     """
     Load a zarr array as a dask array with chunks that are multiples of storage chunks.
