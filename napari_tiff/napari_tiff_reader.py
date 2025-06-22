@@ -137,33 +137,33 @@ def from_zarr_adaptive_chunks(
         target_elements //= 3  # Account for RGB channels
 
     chunk_shape = []
-    remaining_elements = target_elements
+    remaining_target_elements = target_elements
 
     for i, storage_chunk_dim in enumerate(spatial_chunks):
         remaining_dims = len(spatial_chunks) - i
 
         if remaining_dims == 1:
-            multiplier = max(1, remaining_elements // storage_chunk_dim)
+            storage_chunk_multiplier = max(1, remaining_target_elements // storage_chunk_dim)
         else:
             # Aim for isotropic chunks - each dimension gets roughly equal "chunk size"
-            target_chunk_size = int(remaining_elements ** (1 / remaining_dims))
-            multiplier = max(1, target_chunk_size // storage_chunk_dim)
+            target_chunk_size = int(remaining_target_elements ** (1 / remaining_dims))
+            storage_chunk_multiplier = max(1, target_chunk_size // storage_chunk_dim)
 
             # Ensure we don't exceed using the remaining storage_chunk elements
             min_remaining_elements = np.prod(spatial_chunks[i + 1 :])
-            max_shape_for_dim = remaining_elements // min_remaining_elements
-            if multiplier * storage_chunk_dim > max_shape_for_dim:
+            max_shape_for_dim = remaining_target_elements // min_remaining_elements
+            if storage_chunk_multiplier * storage_chunk_dim > max_shape_for_dim:
                 # set the multipler for this dim such that we use the remaining shape
-                multiplier = max(1, max_shape_for_dim // storage_chunk_dim)
+                storage_chunk_multiplier = max(1, max_shape_for_dim // storage_chunk_dim)
 
         # Don't exceed array bounds
         max_multiplier = zarr_array.shape[i] // storage_chunk_dim
         if max_multiplier > 0:
-            multiplier = min(multiplier, max_multiplier)
+            storage_chunk_multiplier = min(storage_chunk_multiplier, max_multiplier)
 
-        chunk_dim = multiplier * storage_chunk_dim
+        chunk_dim = storage_chunk_multiplier * storage_chunk_dim
         chunk_shape.append(chunk_dim)
-        remaining_elements = remaining_elements // chunk_dim
+        remaining_target_elements = remaining_target_elements // chunk_dim
 
     # Add RGB channel dimension back
     if is_rgb:
